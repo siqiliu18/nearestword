@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: nearestword
+      POSTGRES_USER: nearestword
+      POSTGRES_PASSWORD: nearestword
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/001_create_words.sql:/docker-entrypoint-initdb.d/001_create_words.sql
+
+volumes:
+  postgres_data:

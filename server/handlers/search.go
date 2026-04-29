@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -9,10 +10,14 @@ import (
 	"strings"
 
 	goengine "nearestword/engines/go"
+	"nearestword/server/db"
 )
+
+const trgmThreshold = 0.3
 
 type Handler struct {
 	Words []string
+	DB    *db.DB
 }
 
 type SearchRequest struct {
@@ -75,6 +80,21 @@ func runPython(word string, delta, limit int, candidates []string) EngineResult 
 		candidates)
 }
 
+// candidates returns the word list to search against.
+// If trgm=true and DB is connected, uses trigram pre-filtering.
+// Falls back to the full in-memory list otherwise.
+func (h *Handler) candidates(ctx context.Context, word string, trgm bool) ([]string, bool) {
+	if trgm && h.DB != nil {
+		words, err := h.DB.TrigramCandidates(ctx, word, trgmThreshold)
+		if err != nil {
+			log.Printf("trgm query failed, falling back to full scan: %v", err)
+			return h.Words, false
+		}
+		return words, true
+	}
+	return h.Words, false
+}
+
 func Health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -85,7 +105,8 @@ func (h *Handler) SearchGo(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	res := goengine.Search(req.Word, req.Delta, req.Limit, h.Words)
+	candidates, _ := h.candidates(r.Context(), req.Word, req.Trgm)
+	res := goengine.Search(req.Word, req.Delta, req.Limit, candidates)
 	writeJSON(w, http.StatusOK, EngineResult{DurationMs: res.DurationMs, Results: res.Words})
 }
 
@@ -95,8 +116,8 @@ func (h *Handler) SearchCpp(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	res := runCpp(req.Word, req.Delta, req.Limit, h.Words)
-	writeJSON(w, http.StatusOK, res)
+	candidates, _ := h.candidates(r.Context(), req.Word, req.Trgm)
+	writeJSON(w, http.StatusOK, runCpp(req.Word, req.Delta, req.Limit, candidates))
 }
 
 func (h *Handler) SearchPy(w http.ResponseWriter, r *http.Request) {
@@ -105,8 +126,8 @@ func (h *Handler) SearchPy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	res := runPython(req.Word, req.Delta, req.Limit, h.Words)
-	writeJSON(w, http.StatusOK, res)
+	candidates, _ := h.candidates(r.Context(), req.Word, req.Trgm)
+	writeJSON(w, http.StatusOK, runPython(req.Word, req.Delta, req.Limit, candidates))
 }
 
 func (h *Handler) SearchAll(w http.ResponseWriter, r *http.Request) {
@@ -115,12 +136,13 @@ func (h *Handler) SearchAll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	goRes := goengine.Search(req.Word, req.Delta, req.Limit, h.Words)
-	cppRes := runCpp(req.Word, req.Delta, req.Limit, h.Words)
-	pyRes := runPython(req.Word, req.Delta, req.Limit, h.Words)
+	candidates, trgmUsed := h.candidates(r.Context(), req.Word, req.Trgm)
+	goRes := goengine.Search(req.Word, req.Delta, req.Limit, candidates)
+	cppRes := runCpp(req.Word, req.Delta, req.Limit, candidates)
+	pyRes := runPython(req.Word, req.Delta, req.Limit, candidates)
 	writeJSON(w, http.StatusOK, SearchAllResponse{
-		TrgmEnabled:       req.Trgm,
-		CandidatesScanned: len(h.Words),
+		TrgmEnabled:       trgmUsed,
+		CandidatesScanned: len(candidates),
 		Benchmarks: map[string]EngineResult{
 			"go":     {DurationMs: goRes.DurationMs, Results: goRes.Words},
 			"cpp":    {DurationMs: cppRes.DurationMs, Results: cppRes.Results},

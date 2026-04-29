@@ -2,10 +2,12 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"log"
 	"net/http"
 	"os"
 
+	"nearestword/server/db"
 	"nearestword/server/handlers"
 )
 
@@ -33,7 +35,17 @@ func main() {
 	}
 	log.Printf("loaded %d words", len(words))
 
-	h := &handlers.Handler{Words: words}
+	var database *db.DB
+	if connStr := os.Getenv("DATABASE_URL"); connStr != "" {
+		database, err = db.New(context.Background(), connStr)
+		if err != nil {
+			log.Printf("db connect failed (trgm disabled): %v", err)
+		} else {
+			log.Println("connected to database")
+		}
+	}
+
+	h := &handlers.Handler{Words: words, DB: database}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", handlers.Health)

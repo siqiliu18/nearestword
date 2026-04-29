@@ -1,0 +1,8 @@
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE TABLE IF NOT EXISTS words (
+    id   SERIAL PRIMARY KEY,
+    word TEXT NOT NULL UNIQUE
+);
+
+CREATE INDEX IF NOT EXISTS words_trgm_idx ON words USING GIN (word gin_trgm_ops);

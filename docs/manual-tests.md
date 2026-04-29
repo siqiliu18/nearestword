@@ -1,8 +1,13 @@
 # Manual Test Cases
 
-Start the server from the project root before running any test:
+Start Postgres and the server from the project root before running any test:
+```bash
+docker compose up -d db
+DATABASE_URL=postgres://nearestword:nearestword@localhost:5434/nearestword go run ./server/main.go
 ```
-go run ./server/main.go
+On first run, seed the dictionary first:
+```bash
+DATABASE_URL=postgres://nearestword:nearestword@localhost:5434/nearestword go run ./cmd/seed/main.go
 ```
 
 ---

@@ -142,6 +142,8 @@ All three read from PostgreSQL (or accept a pre-loaded word list) and implement 
 | Containerization | Docker Compose | Go server + PostgreSQL + nginx |
 | Domain | `nearestword.dev` | Registered on Namecheap |
 
+**Local dev note — Postgres port:** Rancher Desktop occupies port 5432 via a Unix socket (`/tmp/.s.PGSQL.5432`) that intercepts TCP connections before they reach Docker containers. Use port **5434** locally (`5434:5432` in `docker-compose.yml`). In production, the Go server and Postgres share the same Docker network and connect directly — no host port mapping involved, so this collision doesn't exist there.
+
 ---
 
 ## File Structure (planned)
