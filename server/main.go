@@ -48,6 +48,7 @@ func main() {
 	h := &handlers.Handler{Words: words, DB: database}
 
 	mux := http.NewServeMux()
+	mux.Handle("/", http.FileServer(http.Dir("frontend")))
 	mux.HandleFunc("GET /health", handlers.Health)
 	mux.HandleFunc("POST /api/search/go", h.SearchGo)
 	mux.HandleFunc("POST /api/search/cpp", h.SearchCpp)
