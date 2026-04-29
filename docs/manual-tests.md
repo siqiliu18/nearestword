@@ -102,7 +102,7 @@ Expected: HTTP 400.
 
 ## Notes
 
-- `cpp` results are empty stubs until the C++ engine is wired up.
-- `python` engine is live — results and `duration_ms` should be populated.
+- All three engines are live. Before starting the server, build the C++ binary: `cd engines/cpp && make`
+- Expected rough timings on a 466k word list: Go <1ms, Python ~10ms, C++ ~40ms (subprocess spawn dominates; gap will reverse once trgm pre-filtering reduces candidates to ~500).
 - `trgm` flag is accepted but has no effect yet (PostgreSQL not connected).
 - Once the DB layer is added, re-run tests 1–7 with `"trgm":true` and verify results match `"trgm":false` (same words, fewer `candidates_scanned`, lower `duration_ms`).

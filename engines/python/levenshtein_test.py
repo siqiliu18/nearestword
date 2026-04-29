@@ -4,6 +4,7 @@ import sys
 from io import StringIO
 from unittest.mock import patch
 
+# cd engines/python && python3 -m unittest levenshtein_test -v
 
 class TestDistance(unittest.TestCase):
 

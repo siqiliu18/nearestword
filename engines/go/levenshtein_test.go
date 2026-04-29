@@ -10,9 +10,9 @@ func TestDistance(t *testing.T) {
 		want int
 	}{
 		{"cat", "cat", 0},
-		{"cat", "Cat", 0}, // case-insensitive
-		{"cat", "bat", 1}, // substitution
-		{"cat", "ca", 1},  // deletion
+		{"cat", "Cat", 0},  // case-insensitive
+		{"cat", "bat", 1},  // substitution
+		{"cat", "ca", 1},   // deletion
 		{"cat", "cart", 1}, // insertion
 		{"", "abc", 3},
 		{"abc", "", 3},

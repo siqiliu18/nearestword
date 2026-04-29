@@ -45,25 +45,34 @@ func decodeRequest(r *http.Request) (SearchRequest, error) {
 	return req, err
 }
 
-func runPython(word string, delta, limit int, candidates []string) EngineResult {
-	cmd := exec.Command("python3",
-		"engines/python/levenshtein.py",
-		word, strconv.Itoa(delta), strconv.Itoa(limit),
-	)
+func runSubprocess(bin string, args []string, candidates []string) EngineResult {
+	cmd := exec.Command(bin, args...)
 	cmd.Stdin = strings.NewReader(strings.Join(candidates, "\n"))
 
 	out, err := cmd.Output()
 	if err != nil {
-		log.Printf("python engine error: %v", err)
+		log.Printf("%s engine error: %v", bin, err)
 		return EngineResult{DurationMs: 0, Results: []string{}}
 	}
 
 	var res EngineResult
 	if err := json.Unmarshal(out, &res); err != nil {
-		log.Printf("python engine parse error: %v", err)
+		log.Printf("%s engine parse error: %v", bin, err)
 		return EngineResult{DurationMs: 0, Results: []string{}}
 	}
 	return res
+}
+
+func runCpp(word string, delta, limit int, candidates []string) EngineResult {
+	return runSubprocess("engines/cpp/levenshtein",
+		[]string{word, strconv.Itoa(delta), strconv.Itoa(limit)},
+		candidates)
+}
+
+func runPython(word string, delta, limit int, candidates []string) EngineResult {
+	return runSubprocess("python3",
+		[]string{"engines/python/levenshtein.py", word, strconv.Itoa(delta), strconv.Itoa(limit)},
+		candidates)
 }
 
 func Health(w http.ResponseWriter, r *http.Request) {
@@ -86,8 +95,8 @@ func (h *Handler) SearchCpp(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	_ = req
-	writeJSON(w, http.StatusOK, EngineResult{DurationMs: 0, Results: []string{}})
+	res := runCpp(req.Word, req.Delta, req.Limit, h.Words)
+	writeJSON(w, http.StatusOK, res)
 }
 
 func (h *Handler) SearchPy(w http.ResponseWriter, r *http.Request) {
@@ -107,13 +116,14 @@ func (h *Handler) SearchAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	goRes := goengine.Search(req.Word, req.Delta, req.Limit, h.Words)
+	cppRes := runCpp(req.Word, req.Delta, req.Limit, h.Words)
 	pyRes := runPython(req.Word, req.Delta, req.Limit, h.Words)
 	writeJSON(w, http.StatusOK, SearchAllResponse{
 		TrgmEnabled:       req.Trgm,
 		CandidatesScanned: len(h.Words),
 		Benchmarks: map[string]EngineResult{
 			"go":     {DurationMs: goRes.DurationMs, Results: goRes.Words},
-			"cpp":    {DurationMs: 0, Results: []string{}},
+			"cpp":    {DurationMs: cppRes.DurationMs, Results: cppRes.Results},
 			"python": {DurationMs: pyRes.DurationMs, Results: pyRes.Results},
 		},
 	})
