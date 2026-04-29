@@ -6,10 +6,35 @@ services:
       POSTGRES_USER: nearestword
       POSTGRES_PASSWORD: nearestword
     ports:
-      - "5434:5432"
+      - "5434:5432"   # host port 5434 avoids Rancher Desktop's port 5432 interception
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./migrations/001_create_words.sql:/docker-entrypoint-initdb.d/001_create_words.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nearestword"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgres://nearestword:nearestword@db:5432/nearestword?sslmode=disable
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - server
+    restart: unless-stopped
 
 volumes:
   postgres_data:
