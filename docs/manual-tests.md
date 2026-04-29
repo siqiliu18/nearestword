@@ -102,6 +102,7 @@ Expected: HTTP 400.
 
 ## Notes
 
-- `cpp` and `python` results are empty stubs until those engines are wired up.
+- `cpp` results are empty stubs until the C++ engine is wired up.
+- `python` engine is live — results and `duration_ms` should be populated.
 - `trgm` flag is accepted but has no effect yet (PostgreSQL not connected).
 - Once the DB layer is added, re-run tests 1–7 with `"trgm":true` and verify results match `"trgm":false` (same words, fewer `candidates_scanned`, lower `duration_ms`).

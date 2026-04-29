@@ -99,7 +99,7 @@ CREATE INDEX words_trgm_idx ON words USING GIN (word gin_trgm_ops);
 ```
 
 ### Why PostgreSQL + pg_trgm?
-`pg_trgm` breaks words into every 3-consecutive-character slice (e.g. `"amazing"` → `{ama, maz, azi, zin, ing}`), indexes them, and uses overlap count as a similarity proxy.
+Unlike a standard B-tree index (which speeds up exact lookups and prefix matches to O(log n) but can't reason about similarity), `pg_trgm` is a purpose-built similarity index. It breaks words into every 3-consecutive-character slice (e.g. `"amazing"` → `{ama, maz, azi, zin, ing}`), indexes those slices, and uses overlap count as a similarity proxy — making it possible to quickly discard words that share no trigrams with the query, without computing exact edit distance on every word.
 
 **How it fits into the pipeline:**
 1. `trgm=true`: PostgreSQL filters ~370k words down to ~500 trigram-similar candidates

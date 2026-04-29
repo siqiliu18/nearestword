@@ -2,7 +2,11 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
+	"os/exec"
+	"strconv"
+	"strings"
 
 	goengine "nearestword/engines/go"
 )
@@ -41,6 +45,27 @@ func decodeRequest(r *http.Request) (SearchRequest, error) {
 	return req, err
 }
 
+func runPython(word string, delta, limit int, candidates []string) EngineResult {
+	cmd := exec.Command("python3",
+		"engines/python/levenshtein.py",
+		word, strconv.Itoa(delta), strconv.Itoa(limit),
+	)
+	cmd.Stdin = strings.NewReader(strings.Join(candidates, "\n"))
+
+	out, err := cmd.Output()
+	if err != nil {
+		log.Printf("python engine error: %v", err)
+		return EngineResult{DurationMs: 0, Results: []string{}}
+	}
+
+	var res EngineResult
+	if err := json.Unmarshal(out, &res); err != nil {
+		log.Printf("python engine parse error: %v", err)
+		return EngineResult{DurationMs: 0, Results: []string{}}
+	}
+	return res
+}
+
 func Health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -71,8 +96,8 @@ func (h *Handler) SearchPy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	_ = req
-	writeJSON(w, http.StatusOK, EngineResult{DurationMs: 0, Results: []string{}})
+	res := runPython(req.Word, req.Delta, req.Limit, h.Words)
+	writeJSON(w, http.StatusOK, res)
 }
 
 func (h *Handler) SearchAll(w http.ResponseWriter, r *http.Request) {
@@ -82,13 +107,14 @@ func (h *Handler) SearchAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	goRes := goengine.Search(req.Word, req.Delta, req.Limit, h.Words)
+	pyRes := runPython(req.Word, req.Delta, req.Limit, h.Words)
 	writeJSON(w, http.StatusOK, SearchAllResponse{
 		TrgmEnabled:       req.Trgm,
 		CandidatesScanned: len(h.Words),
 		Benchmarks: map[string]EngineResult{
 			"go":     {DurationMs: goRes.DurationMs, Results: goRes.Words},
 			"cpp":    {DurationMs: 0, Results: []string{}},
-			"python": {DurationMs: 0, Results: []string{}},
+			"python": {DurationMs: pyRes.DurationMs, Results: pyRes.Results},
 		},
 	})
 }
