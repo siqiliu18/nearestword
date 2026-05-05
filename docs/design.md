@@ -10,10 +10,11 @@ Live at: `nearestword.dev` (registered, DNS pending deployment)
 
 ## Goals
 
-- Demonstrate multi-language backend performance comparison (Go, C++, Python)
+- Demonstrate multi-language backend performance comparison (Go, C++, Python, JavaScript)
 - Store the dictionary in PostgreSQL and benchmark with vs without `pg_trgm` trigram pre-filtering
 - Serve over HTTPS with a real domain
-- Keep the frontend minimal — purely a window for user interaction and result display
+- Frontend v1: minimal vanilla HTML/JS — done, deployed at `nearestword.dev`
+- Frontend v2: React + speed test UX — in progress on `feature/react-frontend`
 
 ---
 
@@ -166,6 +167,63 @@ nearest-word/
 ├── nginx.conf
 └── README.md
 ```
+
+---
+
+## Frontend v2 — React + Speed Test
+
+### Stack
+- **Vite + React** — no build complexity, fast dev server
+- Replaces `frontend/index.html` with `frontend/` as a proper Vite project
+- Go file server points at `frontend/dist/` (built output); `make build` compiles the React app
+
+### New UX: speed test animation
+Instead of waiting for all three engines and showing results at once, the browser fires three requests **in parallel** — one to each individual engine endpoint (`/api/search/go`, `/api/search/cpp`, `/api/search/py`) plus a fourth in-browser JavaScript engine — and each column animates in as its response arrives.
+
+```
+[ Go ]       [ C++ ]      [ Python ]   [ JS ]
+ ████░░░       ██░░░░       ████████     █░░░░
+  2ms           5ms           45ms       1ms
+ results...   results...   results...  results...
+```
+
+Each column has a live timer ticking up while waiting, then locks in when the response arrives. This makes the performance difference viscerally visible — Python visibly lags behind.
+
+### JavaScript engine
+Runs entirely in the browser — no server call. Same two-row DP Levenshtein, same interface. Added as a fourth benchmark column. Gets the full in-memory word list pre-loaded from the server on page load (`GET /api/words` or bundled as a static asset).
+
+### API change for parallel requests
+The existing `/api/search/all` runs engines sequentially. For the speed test UX, the browser calls the three individual endpoints in parallel:
+- `POST /api/search/go`
+- `POST /api/search/cpp`
+- `POST /api/search/py`
+
+`/api/search/all` stays for backwards compatibility.
+
+### Planned engine columns
+
+| Engine | Where it runs | Expected time (trgm off) |
+|--------|--------------|--------------------------|
+| Go     | Server       | ~2ms                     |
+| C++    | Server       | ~5ms                     |
+| Python | Server       | ~45ms                    |
+| JS     | Browser      | ~50ms                    |
+
+### Build & deploy
+```
+frontend/
+├── src/
+│   ├── App.jsx
+│   ├── components/
+│   │   ├── SearchForm.jsx
+│   │   └── EngineColumn.jsx
+│   └── levenshtein.js   ← JS engine, runs in browser
+├── index.html
+├── package.json
+└── vite.config.js
+```
+
+`make build` runs `vite build` → outputs to `frontend/dist/` → Go and nginx serve from there.
 
 ---
 
