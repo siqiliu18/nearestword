@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import SearchForm from './components/SearchForm'
 import Speedometer from './components/Speedometer'
 import './App.css'
 
 const ENGINES = [
-  { key: 'go',     label: 'Go',     endpoint: '/api/search/go'  },
-  { key: 'cpp',    label: 'C++',    endpoint: '/api/search/cpp' },
-  { key: 'python', label: 'Python', endpoint: '/api/search/py'  },
-  { key: 'js',     label: 'JS',     endpoint: null              },
+  { key: 'go',   label: 'Go',     endpoint: '/api/search/go'   },
+  { key: 'cpp',  label: 'C++',    endpoint: '/api/search/cpp'  },
+  { key: 'py',   label: 'Python', endpoint: '/api/search/py'   },
+  { key: 'node', label: 'Node.js', endpoint: '/api/search/node' },
 ]
 
 const idleEng    = () => ({ status: 'idle',    durationMs: null, wallClockMs: null })
@@ -16,19 +16,7 @@ const loadingEng = () => ({ status: 'loading', durationMs: null, wallClockMs: nu
 export default function App() {
   const [engines, setEngines] = useState(Object.fromEntries(ENGINES.map(e => [e.key, idleEng()])))
   const [results, setResults] = useState({ status: 'idle', words: [] })
-  const wordsRef       = useRef(null)
-  const workerRef      = useRef(null)
   const searchStartRef = useRef(null)
-
-  useEffect(() => {
-    const worker = new Worker(new URL('./levenshtein.worker.js', import.meta.url), { type: 'module' })
-    worker.onmessage = ({ data }) => {
-      const wallClockMs = searchStartRef.current != null ? Date.now() - searchStartRef.current : null
-      setEng('js', { status: 'done', durationMs: data.duration_ms, wallClockMs })
-    }
-    workerRef.current = worker
-    return () => worker.terminate()
-  }, [])
 
   function setEng(key, val) {
     setEngines(prev => ({ ...prev, [key]: val }))
@@ -42,7 +30,7 @@ export default function App() {
     const body    = JSON.stringify({ word: form.word, delta: form.delta, limit: form.limit, trgm: form.trgm })
     const headers = { 'Content-Type': 'application/json' }
 
-    for (const { key, endpoint } of ENGINES.filter(e => e.endpoint)) {
+    for (const { key, endpoint } of ENGINES) {
       fetch(endpoint, { method: 'POST', headers, body })
         .then(r => r.json())
         .then(data => {
@@ -56,18 +44,6 @@ export default function App() {
           setEng(key, { status: 'error', durationMs: null, wallClockMs: null })
           if (key === 'go') setResults({ status: 'error', words: [] })
         })
-    }
-
-    try {
-      if (!wordsRef.current) {
-        const res = await fetch('/api/words')
-        wordsRef.current = await res.json()
-      }
-      workerRef.current.postMessage({
-        query: form.word, delta: form.delta, limit: form.limit, words: wordsRef.current,
-      })
-    } catch {
-      setEng('js', { status: 'error', durationMs: null, wallClockMs: null })
     }
   }
 

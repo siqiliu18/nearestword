@@ -80,6 +80,12 @@ func runPython(word string, delta, limit int, candidates []string) EngineResult 
 		candidates)
 }
 
+func runNode(word string, delta, limit int, candidates []string) EngineResult {
+	return runSubprocess("node",
+		[]string{"engines/node/levenshtein.js", word, strconv.Itoa(delta), strconv.Itoa(limit)},
+		candidates)
+}
+
 // candidates returns the word list to search against.
 // If trgm=true and DB is connected, uses trigram pre-filtering.
 // Falls back to the full in-memory list otherwise.
@@ -133,6 +139,16 @@ func (h *Handler) SearchPy(w http.ResponseWriter, r *http.Request) {
 	}
 	candidates, _ := h.candidates(r.Context(), req.Word, req.Trgm)
 	writeJSON(w, http.StatusOK, runPython(req.Word, req.Delta, req.Limit, candidates))
+}
+
+func (h *Handler) SearchNode(w http.ResponseWriter, r *http.Request) {
+	req, err := decodeRequest(r)
+	if err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	candidates, _ := h.candidates(r.Context(), req.Word, req.Trgm)
+	writeJSON(w, http.StatusOK, runNode(req.Word, req.Delta, req.Limit, candidates))
 }
 
 func (h *Handler) SearchAll(w http.ResponseWriter, r *http.Request) {
