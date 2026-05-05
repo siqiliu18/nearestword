@@ -28,7 +28,7 @@ def main():
     start = time.time()
     results = []
     for line in sys.stdin:
-        if len(results) == limit:
+        if limit > 0 and len(results) == limit:
             break
         candidate = line.rstrip("\n")
         if not candidate:

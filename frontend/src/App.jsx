@@ -95,9 +95,14 @@ export default function App() {
         {results.status === 'done' && (
           results.words.length === 0
             ? <p className="hint">no matches found</p>
-            : <div className="results-words">
-                {results.words.map(w => <span key={w} className="result-pill">{w}</span>)}
-              </div>
+            : <>
+                <div className="results-words">
+                  {results.words.slice(0, 200).map(w => <span key={w} className="result-pill">{w}</span>)}
+                </div>
+                {results.words.length > 200 && (
+                  <p className="hint" style={{ marginTop: 8 }}>…and {results.words.length - 200} more</p>
+                )}
+              </>
         )}
       </div>
     </div>

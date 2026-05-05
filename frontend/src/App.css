@@ -54,6 +54,13 @@ input[type='checkbox']::after {
 input[type='checkbox']:checked { background: #1a1a1a; }
 input[type='checkbox']:checked::after { left: 18px; }
 
+input.checkbox-plain {
+  width: 14px; height: 14px; appearance: auto;
+  background: none; border-radius: 2px;
+  position: static; transition: none;
+}
+input.checkbox-plain::after { display: none; }
+
 button[type='submit'] {
   padding: 9px 24px; background: #1a1a1a; color: #fff;
   border: none; border-radius: 6px; font-size: 0.95rem;

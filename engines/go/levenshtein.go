@@ -39,7 +39,7 @@ func Search(query string, delta, limit int, candidates []string) Result {
 	words := []string{}
 	qlen := len(query)
 	for _, w := range candidates {
-		if len(words) == limit {
+		if limit > 0 && len(words) == limit {
 			break
 		}
 		if abs(len(w)-qlen) <= delta && distance(query, w) == delta {

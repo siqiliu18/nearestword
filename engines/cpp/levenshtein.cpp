@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
 
     std::vector<std::string> results;
     std::string line;
-    while (static_cast<int>(results.size()) < limit && std::getline(std::cin, line)) {
+    while ((limit <= 0 || static_cast<int>(results.size()) < limit) && std::getline(std::cin, line)) {
         if (line.empty()) continue;
         int len = static_cast<int>(line.size());
         if (std::abs(len - wordLen) <= delta && distance(word, line) == delta)
