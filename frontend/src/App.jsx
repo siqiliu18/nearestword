@@ -73,8 +73,20 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <h1>nearestword</h1>
-        <p>Find dictionary words at a given edit distance — benchmarked across Go, C++, Python, and JavaScript.</p>
+        <h1>
+          <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
+            <rect width="32" height="32" rx="6" fill="#1a1a1a"/>
+            <rect x="6"  y="7"  width="5" height="4" fill="white"/>
+            <rect x="11" y="7"  width="5" height="4" fill="#666"/>
+            <rect x="6"  y="11" width="5" height="4" fill="#666"/>
+            <rect x="11" y="11" width="5" height="4" fill="white"/>
+            <rect x="6"  y="15" width="5" height="4" fill="white"/>
+            <rect x="11" y="15" width="5" height="4" fill="#666"/>
+            <rect x="17" y="6" width="2.5" height="21" rx="1.25" fill="#1a1a1a"/>
+          </svg>
+          EditRace
+        </h1>
+        <p>Type a word, set how many letters off you'll allow, and find every English dictionary match — then watch Go, C++, Python, and JavaScript race to find them.</p>
       </header>
 
       <div className="card">

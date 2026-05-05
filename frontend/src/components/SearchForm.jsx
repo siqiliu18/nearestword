@@ -1,4 +1,8 @@
+import { useState } from 'react'
+
 export default function SearchForm({ onSearch, loading }) {
+  const [trgm, setTrgm] = useState(false)
+
   function handleSubmit(e) {
     e.preventDefault()
     const fd = new FormData(e.target)
@@ -26,7 +30,10 @@ export default function SearchForm({ onSearch, loading }) {
       </div>
       <div className="field toggle-field">
         <label htmlFor="trgm">Trigram filter</label>
-        <input id="trgm" name="trgm" type="checkbox" defaultChecked />
+        <input id="trgm" name="trgm" type="checkbox" checked={trgm} onChange={e => setTrgm(e.target.checked)} />
+        <span className="trgm-hint">
+          {trgm ? 'faster, may miss some matches' : 'slower, complete results'}
+        </span>
       </div>
       <button type="submit" disabled={loading}>
         {loading ? 'Searching…' : 'Search'}
