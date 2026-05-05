@@ -48,11 +48,13 @@ func main() {
 	h := &handlers.Handler{Words: words, DB: database}
 
 	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.Dir("frontend")))
+	mux.Handle("/", http.FileServer(http.Dir("frontend/dist")))
 	mux.HandleFunc("GET /health", handlers.Health)
+	mux.HandleFunc("GET /api/words", h.GetWords)
 	mux.HandleFunc("POST /api/search/go", h.SearchGo)
 	mux.HandleFunc("POST /api/search/cpp", h.SearchCpp)
 	mux.HandleFunc("POST /api/search/py", h.SearchPy)
+	mux.HandleFunc("POST /api/search/node", h.SearchNode)
 	mux.HandleFunc("POST /api/search/all", h.SearchAll)
 
 	log.Println("listening on :8080")
