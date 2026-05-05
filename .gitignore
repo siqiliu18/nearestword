@@ -1,2 +1,5 @@
 engines/cpp/levenshtein
 engines/cpp/levenshtein_test
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
