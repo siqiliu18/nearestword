@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import SearchForm from './components/SearchForm'
-import EngineColumn from './components/EngineColumn'
+import Speedometer from './components/Speedometer'
 import './App.css'
 
 const ENGINES = [
@@ -10,12 +10,12 @@ const ENGINES = [
   { key: 'js',     label: 'JS',     endpoint: null              },
 ]
 
-const idle    = () => ({ status: 'idle',    durationMs: null, wallClockMs: null, results: [] })
-const loading = () => ({ status: 'loading', durationMs: null, wallClockMs: null, results: [] })
+const idleEng    = () => ({ status: 'idle',    durationMs: null, wallClockMs: null })
+const loadingEng = () => ({ status: 'loading', durationMs: null, wallClockMs: null })
 
 export default function App() {
-  const [engines, setEngines] = useState(Object.fromEntries(ENGINES.map(e => [e.key, idle()])))
-  const [scanned, setScanned] = useState(null)
+  const [engines, setEngines] = useState(Object.fromEntries(ENGINES.map(e => [e.key, idleEng()])))
+  const [results, setResults] = useState({ status: 'idle', words: [] })
   const wordsRef       = useRef(null)
   const workerRef      = useRef(null)
   const searchStartRef = useRef(null)
@@ -23,38 +23,41 @@ export default function App() {
   useEffect(() => {
     const worker = new Worker(new URL('./levenshtein.worker.js', import.meta.url), { type: 'module' })
     worker.onmessage = ({ data }) => {
-      const wallClockMs = searchStartRef.current !== null ? Date.now() - searchStartRef.current : null
-      setEngine('js', { status: 'done', durationMs: data.duration_ms, wallClockMs, results: data.results })
+      const wallClockMs = searchStartRef.current != null ? Date.now() - searchStartRef.current : null
+      setEng('js', { status: 'done', durationMs: data.duration_ms, wallClockMs })
     }
     workerRef.current = worker
     return () => worker.terminate()
   }, [])
 
-  function setEngine(key, val) {
+  function setEng(key, val) {
     setEngines(prev => ({ ...prev, [key]: val }))
   }
 
   async function handleSearch(form) {
     searchStartRef.current = Date.now()
-    setEngines(Object.fromEntries(ENGINES.map(e => [e.key, loading()])))
-    setScanned(null)
+    setEngines(Object.fromEntries(ENGINES.map(e => [e.key, loadingEng()])))
+    setResults({ status: 'loading', words: [] })
 
     const body    = JSON.stringify({ word: form.word, delta: form.delta, limit: form.limit, trgm: form.trgm })
     const headers = { 'Content-Type': 'application/json' }
 
-    // Fire server engines in parallel — each updates its column independently
     for (const { key, endpoint } of ENGINES.filter(e => e.endpoint)) {
       fetch(endpoint, { method: 'POST', headers, body })
         .then(r => r.json())
         .then(data => {
-          const wallClockMs = searchStartRef.current !== null ? Date.now() - searchStartRef.current : null
-          setEngine(key, { status: 'done', durationMs: data.duration_ms, wallClockMs, results: data.results ?? [] })
-          if (key === 'go') setScanned(data.candidates_scanned ?? null)
+          const wallClockMs = searchStartRef.current != null ? Date.now() - searchStartRef.current : null
+          setEng(key, { status: 'done', durationMs: data.duration_ms, wallClockMs })
+          if (key === 'go') {
+            setResults({ status: 'done', words: data.results ?? [] })
+          }
         })
-        .catch(() => setEngine(key, { status: 'error', durationMs: null, wallClockMs: null, results: [] }))
+        .catch(() => {
+          setEng(key, { status: 'error', durationMs: null, wallClockMs: null })
+          if (key === 'go') setResults({ status: 'error', words: [] })
+        })
     }
 
-    // JS engine: load word list once, then run in Web Worker (non-blocking)
     try {
       if (!wordsRef.current) {
         const res = await fetch('/api/words')
@@ -64,7 +67,7 @@ export default function App() {
         query: form.word, delta: form.delta, limit: form.limit, words: wordsRef.current,
       })
     } catch {
-      setEngine('js', { status: 'error', durationMs: null, wallClockMs: null, results: [] })
+      setEng('js', { status: 'error', durationMs: null, wallClockMs: null })
     }
   }
 
@@ -93,12 +96,6 @@ export default function App() {
         <SearchForm onSearch={handleSearch} loading={anyLoading} />
       </div>
 
-      {scanned !== null && (
-        <div className="meta">
-          <span>{scanned.toLocaleString()} candidates scanned</span>
-        </div>
-      )}
-
       <div className="grid-header">
         <span className="timing-info">
           ⓘ timing
@@ -109,10 +106,23 @@ export default function App() {
         </span>
       </div>
 
-      <div className="grid">
+      <div className="gauges-grid">
         {ENGINES.map(({ key, label }) => (
-          <EngineColumn key={key} label={label} engine={engines[key]} />
+          <Speedometer key={key} label={label} {...engines[key]} />
         ))}
+      </div>
+
+      <div className="results-panel">
+        {results.status === 'idle'    && <p className="hint">results appear here after search</p>}
+        {results.status === 'loading' && <p className="hint">searching…</p>}
+        {results.status === 'error'   && <p className="error">request failed</p>}
+        {results.status === 'done' && (
+          results.words.length === 0
+            ? <p className="hint">no matches found</p>
+            : <div className="results-words">
+                {results.words.map(w => <span key={w} className="result-pill">{w}</span>)}
+              </div>
+        )}
       </div>
     </div>
   )
