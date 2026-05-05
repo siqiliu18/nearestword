@@ -95,6 +95,7 @@ button[type='submit']:disabled { background: #999; cursor: not-allowed; }
   position: relative; display: inline-flex; align-items: center;
   font-size: 0.75rem; color: #aaa; cursor: default;
   user-select: none; gap: 3px;
+  text-transform: none; letter-spacing: normal; font-weight: normal;
 }
 .timing-info:hover { color: #555; }
 .timing-tooltip {
@@ -112,6 +113,14 @@ button[type='submit']:disabled { background: #999; cursor: not-allowed; }
   border: 5px solid transparent; border-bottom-color: #1a1a1a;
 }
 .timing-info:hover .timing-tooltip { display: block; }
+
+/* Tooltip that opens leftward (for mid-form icons) */
+.timing-tooltip.left {
+  right: auto; left: 0;
+}
+.timing-tooltip.left::before {
+  right: auto; left: 10px;
+}
 
 .engine-times {
   display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
