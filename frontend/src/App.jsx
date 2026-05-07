@@ -65,7 +65,7 @@ export default function App() {
           </svg>
           EditRace
         </h1>
-        <p>Type a word, set how many letters off you'll allow, and find every English dictionary match — then watch Go, C++, Python, and JavaScript race to find them.</p>
+        <p>Type a word, set how many letters off you'll allow, and find every match across a <a href="https://raw.githubusercontent.com/dwyl/english-words/master/words.txt" target="_blank" rel="noreferrer">466k-word dictionary ↗</a> — then watch Go, C++, Python, and Node.js race to find them.</p>
       </header>
 
       <div className="card">
