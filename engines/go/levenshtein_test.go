@@ -1,4 +1,4 @@
-package goengine
+package main
 
 import (
 	"testing"

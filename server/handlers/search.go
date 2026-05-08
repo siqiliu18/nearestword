@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	goengine "nearestword/engines/go"
 	"nearestword/server/db"
 )
 
@@ -84,6 +83,12 @@ func runSubprocess(bin string, args []string, candidates []string) EngineResult 
 	return res
 }
 
+func runGo(word string, delta, limit int, candidates []string) EngineResult {
+	return runSubprocess("engines/go/levenshtein",
+		[]string{word, strconv.Itoa(delta), strconv.Itoa(limit)},
+		candidates)
+}
+
 func runCpp(word string, delta, limit int, candidates []string) EngineResult {
 	return runSubprocess("engines/cpp/levenshtein",
 		[]string{word, strconv.Itoa(delta), strconv.Itoa(limit)},
@@ -133,8 +138,8 @@ func (h *Handler) SearchGo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	candidates, _ := h.candidates(r.Context(), req.Word, req.Trgm)
-	res := goengine.Search(req.Word, req.Delta, req.Limit, candidates)
-	writeJSON(w, http.StatusOK, EngineResult{DurationMs: res.DurationMs, Results: res.Words})
+	filtered := lengthPrefilter(candidates, req.Word, req.Delta)
+	writeJSON(w, http.StatusOK, runGo(req.Word, req.Delta, req.Limit, filtered))
 }
 
 func (h *Handler) SearchCpp(w http.ResponseWriter, r *http.Request) {
@@ -240,14 +245,15 @@ func (h *Handler) SearchAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	candidates, trgmUsed := h.candidates(r.Context(), req.Word, req.Trgm)
-	goRes := goengine.Search(req.Word, req.Delta, req.Limit, candidates)
-	cppRes := runCpp(req.Word, req.Delta, req.Limit, candidates)
-	pyRes := runPython(req.Word, req.Delta, req.Limit, candidates)
+	filtered := lengthPrefilter(candidates, req.Word, req.Delta)
+	goRes := runGo(req.Word, req.Delta, req.Limit, filtered)
+	cppRes := runCpp(req.Word, req.Delta, req.Limit, filtered)
+	pyRes := runPython(req.Word, req.Delta, req.Limit, filtered)
 	writeJSON(w, http.StatusOK, SearchAllResponse{
 		TrgmEnabled:       trgmUsed,
 		CandidatesScanned: len(candidates),
 		Benchmarks: map[string]EngineResult{
-			"go":     {DurationMs: goRes.DurationMs, Results: goRes.Words},
+			"go":     {DurationMs: goRes.DurationMs, Results: goRes.Results},
 			"cpp":    {DurationMs: cppRes.DurationMs, Results: cppRes.Results},
 			"python": {DurationMs: pyRes.DurationMs, Results: pyRes.Results},
 		},

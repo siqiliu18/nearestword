@@ -1,6 +1,12 @@
-package goengine
+package main
 
 import (
+	"bufio"
+	"encoding/json"
+	"fmt"
+	"os"
+	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -57,4 +63,28 @@ func abs(x int) int {
 		return -x
 	}
 	return x
+}
+
+func main() {
+	word := os.Args[1]
+	delta, _ := strconv.Atoi(os.Args[2])
+	limit, _ := strconv.Atoi(os.Args[3])
+
+	candidates := make([]string, 0, 500000)
+	sc := bufio.NewScanner(os.Stdin)
+	buf := make([]byte, 1024*1024)
+	sc.Buffer(buf, len(buf))
+	for sc.Scan() {
+		if line := sc.Text(); line != "" {
+			candidates = append(candidates, line)
+		}
+	}
+	runtime.GC()
+
+	res := Search(word, delta, limit, candidates)
+	out, _ := json.Marshal(map[string]interface{}{
+		"duration_ms": res.DurationMs,
+		"results":     res.Words,
+	})
+	fmt.Println(string(out))
 }

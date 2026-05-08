@@ -18,6 +18,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o nearestword-server ./server/
+RUN CGO_ENABLED=0 go build -o engines/go/levenshtein ./engines/go/
 
 # Stage 3 — runtime
 FROM debian:bookworm-slim
@@ -32,8 +33,9 @@ ENV GOPATH=/tmp/gopath
 ENV GOCACHE=/tmp/gocache
 ENV GOTOOLCHAIN=local
 
-COPY --from=builder          /app/nearestword-server       ./nearestword-server
-COPY --from=builder          /app/engines/cpp/levenshtein  ./engines/cpp/levenshtein
+COPY --from=builder          /app/nearestword-server           ./nearestword-server
+COPY --from=builder          /app/engines/cpp/levenshtein      ./engines/cpp/levenshtein
+COPY --from=builder          /app/engines/go/levenshtein       ./engines/go/levenshtein
 COPY --from=frontend-builder /app/frontend/dist            ./frontend/dist
 COPY engines/python/         engines/python/
 COPY engines/node/           engines/node/
