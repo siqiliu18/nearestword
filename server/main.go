@@ -55,6 +55,10 @@ func main() {
 	mux.HandleFunc("POST /api/search/cpp", h.SearchCpp)
 	mux.HandleFunc("POST /api/search/py", h.SearchPy)
 	mux.HandleFunc("POST /api/search/node", h.SearchNode)
+	mux.HandleFunc("POST /api/search/custom", h.SearchCustom)
+	mux.HandleFunc("POST /api/compile", h.Compile)
+	mux.HandleFunc("POST /api/search/compiled", h.SearchCompiled)
+	mux.HandleFunc("GET /api/source/{engine}", h.SourceHandler)
 	mux.HandleFunc("POST /api/search/all", h.SearchAll)
 
 	log.Println("listening on :8080")

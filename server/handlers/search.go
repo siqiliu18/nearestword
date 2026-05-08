@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -149,6 +150,71 @@ func (h *Handler) SearchNode(w http.ResponseWriter, r *http.Request) {
 	}
 	candidates, _ := h.candidates(r.Context(), req.Word, req.Trgm)
 	writeJSON(w, http.StatusOK, runNode(req.Word, req.Delta, req.Limit, candidates))
+}
+
+var sourceFiles = map[string]string{
+	"go":   "engines/go/levenshtein.go",
+	"cpp":  "engines/cpp/levenshtein.cpp",
+	"py":   "engines/python/levenshtein.py",
+	"node": "engines/node/levenshtein.js",
+}
+
+func (h *Handler) SourceHandler(w http.ResponseWriter, r *http.Request) {
+	engine := r.PathValue("engine")
+	path, ok := sourceFiles[engine]
+	if !ok {
+		http.Error(w, "unknown engine", http.StatusNotFound)
+		return
+	}
+	src, err := os.ReadFile(path)
+	if err != nil {
+		http.Error(w, "source not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Write(src)
+}
+
+type CustomRequest struct {
+	SearchRequest
+	Code     string `json:"code"`
+	Language string `json:"language"`
+}
+
+func (h *Handler) SearchCustom(w http.ResponseWriter, r *http.Request) {
+	var req CustomRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	var ext, bin string
+	switch req.Language {
+	case "python":
+		ext, bin = ".py", "python3"
+	case "node":
+		ext, bin = ".js", "node"
+	default:
+		http.Error(w, "unsupported language", http.StatusBadRequest)
+		return
+	}
+
+	tmp, err := os.CreateTemp("", "editrace-*"+ext)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.WriteString(req.Code); err != nil {
+		tmp.Close()
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	tmp.Close()
+
+	candidates, _ := h.candidates(r.Context(), req.Word, req.Trgm)
+	result := runSubprocess(bin, []string{tmp.Name(), req.Word, strconv.Itoa(req.Delta), strconv.Itoa(req.Limit)}, candidates)
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (h *Handler) SearchAll(w http.ResponseWriter, r *http.Request) {
