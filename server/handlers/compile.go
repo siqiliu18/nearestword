@@ -78,16 +78,19 @@ func main() {
 	limit, _ := strconv.Atoi(os.Args[3])
 	wordLen := len(word)
 
-	start := time.Now()
-	var results []string
+	var candidates []string
 	sc := bufio.NewScanner(os.Stdin)
 	for sc.Scan() {
+		if line := sc.Text(); line != "" {
+			candidates = append(candidates, line)
+		}
+	}
+
+	start := time.Now()
+	var results []string
+	for _, candidate := range candidates {
 		if limit > 0 && len(results) >= limit {
 			break
-		}
-		candidate := sc.Text()
-		if candidate == "" {
-			continue
 		}
 		diff := len(candidate) - wordLen
 		if diff < 0 {

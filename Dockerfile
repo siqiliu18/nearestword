@@ -35,9 +35,11 @@ ENV GOTOOLCHAIN=local
 COPY --from=builder          /app/nearestword-server       ./nearestword-server
 COPY --from=builder          /app/engines/cpp/levenshtein  ./engines/cpp/levenshtein
 COPY --from=frontend-builder /app/frontend/dist            ./frontend/dist
-COPY engines/python/  engines/python/
-COPY engines/node/    engines/node/
-COPY data/words.txt   data/words.txt
+COPY engines/python/         engines/python/
+COPY engines/node/           engines/node/
+COPY engines/go/             engines/go/
+COPY engines/cpp/levenshtein.cpp engines/cpp/levenshtein.cpp
+COPY data/words.txt          data/words.txt
 
 EXPOSE 8080
 CMD ["./nearestword-server"]
