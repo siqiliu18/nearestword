@@ -21,6 +21,17 @@ export default function App() {
   const [showBoard, setShowBoard]   = useState(false)
   const [lastParams, setLastParams] = useState(null)
   const searchStartRef = useRef(null)
+  const goResultsRef   = useRef(null)
+  const userResultsRef = useRef(null)
+
+  function checkMatch() {
+    if (goResultsRef.current === null || userResultsRef.current === null) return
+    const matched = JSON.stringify([...goResultsRef.current].sort()) ===
+                    JSON.stringify([...userResultsRef.current].sort())
+    setUserEngine(prev => prev.status === 'done'
+      ? { ...prev, matchStatus: matched ? 'match' : 'mismatch' }
+      : prev)
+  }
 
   function setEng(key, val) {
     setEngines(prev => ({ ...prev, [key]: val }))
@@ -28,6 +39,8 @@ export default function App() {
 
   function runAll(params, customCode = null, customLang = null) {
     searchStartRef.current = Date.now()
+    goResultsRef.current   = null
+    userResultsRef.current = null
     setEngines(Object.fromEntries(ENGINES.map(e => [e.key, loadingEng()])))
     setResults({ status: 'loading', words: [] })
     if (customCode) setUserEngine(loadingEng())
@@ -41,7 +54,12 @@ export default function App() {
         .then(data => {
           const wallClockMs = searchStartRef.current != null ? Date.now() - searchStartRef.current : null
           setEng(key, { status: 'done', durationMs: data.duration_ms, wallClockMs })
-          if (key === 'go') setResults({ status: 'done', words: data.results ?? [] })
+          if (key === 'go') {
+            const words = data.results ?? []
+            setResults({ status: 'done', words })
+            goResultsRef.current = words
+            checkMatch()
+          }
         })
         .catch(() => {
           setEng(key, { status: 'error', durationMs: null, wallClockMs: null })
@@ -58,7 +76,9 @@ export default function App() {
         .then(r => r.json())
         .then(data => {
           const wallClockMs = searchStartRef.current != null ? Date.now() - searchStartRef.current : null
-          setUserEngine({ status: 'done', durationMs: data.duration_ms, wallClockMs })
+          userResultsRef.current = data.results ?? []
+          setUserEngine({ status: 'done', durationMs: data.duration_ms, wallClockMs, matchStatus: null })
+          checkMatch()
         })
         .catch(() => setUserEngine({ status: 'error', durationMs: null, wallClockMs: null }))
     }
@@ -114,7 +134,7 @@ export default function App() {
           <Speedometer key={key} label={label} engineKey={key} {...engines[key]} />
         ))}
         {showBoard && (
-          <Speedometer label="You" engineKey={null} {...userEngine} />
+          <Speedometer label="You" engineKey={null} matchStatus={userEngine.matchStatus} {...userEngine} />
         )}
       </div>
 

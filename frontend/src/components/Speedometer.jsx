@@ -7,7 +7,7 @@ function msColor(ms) {
   return '#c0392b'
 }
 
-export default function Speedometer({ label, status, durationMs, wallClockMs, engineKey }) {
+export default function Speedometer({ label, status, durationMs, wallClockMs, engineKey, matchStatus }) {
   const [elapsed, setElapsed]   = useState(0)
   const [source, setSource]     = useState(null)
   const [showModal, setShowModal] = useState(false)
@@ -39,13 +39,16 @@ export default function Speedometer({ label, status, durationMs, wallClockMs, en
         onClick={handleClick}
       >
         <div className="sp-label">{label}</div>
-        <div className="sp-timer" style={{ color }}>
-          {status === 'idle' ? '—' : displayMs == null ? '—' : `${displayMs}ms`}
-        </div>
-        {status === 'done' && wallClockMs != null && (
+        {matchStatus !== 'mismatch' && (
+          <div className="sp-timer" style={{ color }}>
+            {status === 'idle' ? '—' : displayMs == null ? '—' : `${displayMs}ms`}
+          </div>
+        )}
+        {status === 'done' && wallClockMs != null && matchStatus !== 'mismatch' && (
           <div className="sp-total">total {wallClockMs}ms</div>
         )}
         {status === 'error' && <div className="sp-total" style={{ color: '#c0392b' }}>error</div>}
+        {matchStatus === 'mismatch' && <div className="sp-match mismatch">✗ wrong answer</div>}
         {engineKey && <div className="sp-hint">click for source code</div>}
       </div>
 

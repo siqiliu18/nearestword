@@ -7,7 +7,7 @@ const TEMPLATES = {
 def distance(a, b):
     a, b = a.lower(), b.lower()
     m, n = len(a), len(b)
-    # TODO: implement and return the Levenshtein edit distance
+    # TODO: implement Levenshtein edit distance
 
 def main():
     word  = sys.argv[1]
@@ -38,7 +38,7 @@ const wordLen = word.length
 function distance(a, b) {
   a = a.toLowerCase()
   b = b.toLowerCase()
-  // TODO: implement and return the Levenshtein edit distance
+  // TODO: implement Levenshtein edit distance
 }
 
 const start = Date.now()
@@ -60,6 +60,21 @@ rl.on('close', () => {
 export default function CodeBoard({ onRun, loading, hasParams }) {
   const [lang, setLang] = useState('python')
   const [code, setCode] = useState(TEMPLATES.python)
+
+  function distanceHasReturn(src, language) {
+    const sigPy  = 'def distance('
+    const endPy  = 'def main('
+    const sigJs  = 'function distance('
+    const endJs  = 'const start'
+    const [sig, end] = language === 'python' ? [sigPy, endPy] : [sigJs, endJs]
+    const from = src.indexOf(sig)
+    if (from === -1) return true
+    const to = src.indexOf(end, from)
+    const body = to === -1 ? src.slice(from) : src.slice(from, to)
+    return /\breturn\s+\S/.test(body)
+  }
+
+  const notImplemented = !distanceHasReturn(code, lang)
 
   function handleLangChange(newLang) {
     setLang(newLang)
@@ -88,18 +103,23 @@ export default function CodeBoard({ onRun, loading, hasParams }) {
           <button
             className="run-btn"
             onClick={() => onRun(code, lang)}
-            disabled={loading || !hasParams}
+            disabled={loading || !hasParams || notImplemented}
           >
             {loading ? 'Racing…' : '▶ Run'}
           </button>
         </div>
       </div>
+      {notImplemented && (
+        <div className="board-warning">
+          ⚠ <code>distance(a, b)</code> is not implemented yet — results will be empty
+        </div>
+      )}
       <Editor
         height="300px"
         language={lang === 'node' ? 'javascript' : 'python'}
         value={code}
         onChange={val => setCode(val ?? '')}
-        theme="vs-dark"
+        theme="vs"
         options={{
           minimap: { enabled: false },
           fontSize: 13,
