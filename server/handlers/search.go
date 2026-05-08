@@ -51,6 +51,21 @@ func decodeRequest(r *http.Request) (SearchRequest, error) {
 	return req, err
 }
 
+func lengthPrefilter(candidates []string, word string, delta int) []string {
+	wl := len(word)
+	out := make([]string, 0, len(candidates)/4)
+	for _, c := range candidates {
+		d := len(c) - wl
+		if d < 0 {
+			d = -d
+		}
+		if d <= delta {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 func runSubprocess(bin string, args []string, candidates []string) EngineResult {
 	cmd := exec.Command(bin, args...)
 	cmd.Stdin = strings.NewReader(strings.Join(candidates, "\n"))
@@ -213,7 +228,8 @@ func (h *Handler) SearchCustom(w http.ResponseWriter, r *http.Request) {
 	tmp.Close()
 
 	candidates, _ := h.candidates(r.Context(), req.Word, req.Trgm)
-	result := runSubprocess(bin, []string{tmp.Name(), req.Word, strconv.Itoa(req.Delta), strconv.Itoa(req.Limit)}, candidates)
+	filtered := lengthPrefilter(candidates, req.Word, req.Delta)
+	result := runSubprocess(bin, []string{tmp.Name(), req.Word, strconv.Itoa(req.Delta), strconv.Itoa(req.Limit)}, filtered)
 	writeJSON(w, http.StatusOK, result)
 }
 

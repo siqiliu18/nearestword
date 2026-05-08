@@ -321,8 +321,9 @@ func (h *Handler) SearchCompiled(w http.ResponseWriter, r *http.Request) {
 	}
 
 	candidates, _ := h.candidates(r.Context(), req.Word, req.Trgm)
+	filtered := lengthPrefilter(candidates, req.Word, req.Delta)
 	result := runSubprocess(b.path,
 		[]string{req.Word, strconv.Itoa(req.Delta), strconv.Itoa(req.Limit)},
-		candidates)
+		filtered)
 	writeJSON(w, http.StatusOK, result)
 }
