@@ -23,7 +23,14 @@ RUN CGO_ENABLED=0 go build -o nearestword-server ./server/
 FROM debian:bookworm-slim
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y python3 nodejs ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y python3 nodejs ca-certificates g++ && rm -rf /var/lib/apt/lists/*
+
+# Copy Go toolchain from builder for user code compilation
+COPY --from=builder /usr/local/go /usr/local/go
+ENV PATH="$PATH:/usr/local/go/bin"
+ENV GOPATH=/tmp/gopath
+ENV GOCACHE=/tmp/gocache
+ENV GOTOOLCHAIN=local
 
 COPY --from=builder          /app/nearestword-server       ./nearestword-server
 COPY --from=builder          /app/engines/cpp/levenshtein  ./engines/cpp/levenshtein

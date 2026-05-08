@@ -20,9 +20,10 @@ export default function App() {
   const [results, setResults]       = useState({ status: 'idle', words: [] })
   const [showBoard, setShowBoard]   = useState(false)
   const [lastParams, setLastParams] = useState(null)
-  const searchStartRef = useRef(null)
-  const goResultsRef   = useRef(null)
-  const userResultsRef = useRef(null)
+  const searchStartRef    = useRef(null)
+  const goResultsRef      = useRef(null)
+  const userResultsRef    = useRef(null)
+  const compiledBinaryRef = useRef(null) // { id, lang } | null
 
   function checkMatch() {
     if (goResultsRef.current === null || userResultsRef.current === null) return
@@ -37,13 +38,13 @@ export default function App() {
     setEngines(prev => ({ ...prev, [key]: val }))
   }
 
-  function runAll(params, customCode = null, customLang = null) {
+  function runAll(params, customCode = null, customLang = null, binaryId = null) {
     searchStartRef.current = Date.now()
     goResultsRef.current   = null
     userResultsRef.current = null
     setEngines(Object.fromEntries(ENGINES.map(e => [e.key, loadingEng()])))
     setResults({ status: 'loading', words: [] })
-    if (customCode) setUserEngine(loadingEng())
+    if (customCode || binaryId) setUserEngine(loadingEng())
 
     const body    = JSON.stringify({ word: params.word, delta: params.delta, limit: params.limit, trgm: params.trgm })
     const headers = { 'Content-Type': 'application/json' }
@@ -82,6 +83,22 @@ export default function App() {
         })
         .catch(() => setUserEngine({ status: 'error', durationMs: null, wallClockMs: null }))
     }
+
+    if (binaryId) {
+      const compiledBody = JSON.stringify({
+        word: params.word, delta: params.delta, limit: params.limit, trgm: params.trgm,
+        binary_id: binaryId,
+      })
+      fetch('/api/search/compiled', { method: 'POST', headers, body: compiledBody })
+        .then(r => r.json())
+        .then(data => {
+          const wallClockMs = searchStartRef.current != null ? Date.now() - searchStartRef.current : null
+          userResultsRef.current = data.results ?? []
+          setUserEngine({ status: 'done', durationMs: data.duration_ms, wallClockMs, matchStatus: null })
+          checkMatch()
+        })
+        .catch(() => setUserEngine({ status: 'error', durationMs: null, wallClockMs: null }))
+    }
   }
 
   function handleSearch(form) {
@@ -89,9 +106,26 @@ export default function App() {
     runAll(form)
   }
 
+  function handleCompile(code, lang, callback) {
+    compiledBinaryRef.current = null
+    const headers = { 'Content-Type': 'application/json' }
+    fetch('/api/compile', { method: 'POST', headers, body: JSON.stringify({ code, language: lang }) })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) compiledBinaryRef.current = { id: data.binary_id, lang }
+        callback(data.ok, data.error || null)
+      })
+      .catch(() => callback(false, 'request failed'))
+  }
+
   function handleRun(code, lang) {
     if (!lastParams) return
-    runAll(lastParams, code, lang)
+    const bin = compiledBinaryRef.current
+    if (bin && bin.lang === lang) {
+      runAll(lastParams, null, null, bin.id)
+    } else {
+      runAll(lastParams, code, lang)
+    }
   }
 
   const anyLoading = Object.values(engines).some(e => e.status === 'loading') || userEngine.status === 'loading'
@@ -138,14 +172,20 @@ export default function App() {
         )}
       </div>
 
-      <button className="board-toggle" onClick={() => setShowBoard(v => { if (v) setUserEngine(idleEng()); return !v; })}>
+      <button className="board-toggle" onClick={() => setShowBoard(v => { if (v) { setUserEngine(idleEng()); compiledBinaryRef.current = null; } return !v; })}>
         <span>&lt;/&gt; Code your own</span>
         <span className={`toggle-chevron${showBoard ? ' open' : ''}`}>▾</span>
       </button>
 
       {showBoard && (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <CodeBoard onRun={handleRun} loading={anyLoading} hasParams={!!lastParams} />
+          <CodeBoard
+            onRun={handleRun}
+            onCompile={handleCompile}
+            onLangChange={() => { setUserEngine(idleEng()); compiledBinaryRef.current = null; }}
+            loading={anyLoading}
+            hasParams={!!lastParams}
+          />
         </div>
       )}
 

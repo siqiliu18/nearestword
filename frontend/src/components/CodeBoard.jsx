@@ -55,21 +55,46 @@ rl.on('close', () => {
   process.stdout.write(JSON.stringify({ duration_ms: Date.now() - start, results }) + '\\n')
 })
 `,
+  go: `// Add imports if needed, e.g.:
+// import "strings"
+
+func distance(a, b string) int {
+	// TODO: implement Levenshtein edit distance
+}
+`,
+  cpp: `// Add includes or using directives if needed, e.g.:
+// #include <algorithm>
+// using namespace std;
+
+int distance(const std::string& a, const std::string& b) {
+	// TODO: implement Levenshtein edit distance
+}
+`,
 }
 
-export default function CodeBoard({ onRun, loading, hasParams }) {
-  const [lang, setLang] = useState('python')
-  const [code, setCode] = useState(TEMPLATES.python)
+const MONACO_LANG = { python: 'python', node: 'javascript', go: 'go', cpp: 'cpp' }
+const COMPILED_LANGS = new Set(['go', 'cpp'])
+
+export default function CodeBoard({ onRun, onCompile, onLangChange, loading, hasParams }) {
+  const [lang, setLang]               = useState('python')
+  const [code, setCode]               = useState(TEMPLATES.python)
+  const [compileState, setCompileState] = useState('idle') // idle | compiling | compiled | error
+  const [compileError, setCompileError] = useState('')
+
+  const isCompiled = COMPILED_LANGS.has(lang)
 
   function distanceHasReturn(src, language) {
-    const sigPy  = 'def distance('
-    const endPy  = 'def main('
-    const sigJs  = 'function distance('
-    const endJs  = 'const start'
-    const [sig, end] = language === 'python' ? [sigPy, endPy] : [sigJs, endJs]
-    const from = src.indexOf(sig)
+    const patterns = {
+      python: { sig: 'def distance(',      end: 'def main(' },
+      node:   { sig: 'function distance(', end: 'const start' },
+      go:     { sig: 'func distance(',     end: null },
+      cpp:    { sig: 'distance(',          end: null },
+    }
+    const p = patterns[language]
+    if (!p) return true
+    const from = src.indexOf(p.sig)
     if (from === -1) return true
-    const to = src.indexOf(end, from)
+    const to = p.end ? src.indexOf(p.end, from) : -1
     const body = to === -1 ? src.slice(from) : src.slice(from, to)
     return /\breturn\s+\S/.test(body)
   }
@@ -79,57 +104,116 @@ export default function CodeBoard({ onRun, loading, hasParams }) {
   function handleLangChange(newLang) {
     setLang(newLang)
     setCode(TEMPLATES[newLang])
+    setCompileState('idle')
+    setCompileError('')
+    onLangChange?.()
+  }
+
+  function handleCodeChange(val) {
+    setCode(val ?? '')
+    if (compileState === 'compiled') setCompileState('idle')
+  }
+
+  function handleCompileClick() {
+    setCompileState('compiling')
+    setCompileError('')
+    onCompile(code, lang, (ok, errText) => {
+      setCompileState(ok ? 'compiled' : 'error')
+      if (!ok) setCompileError(errText || 'compilation failed')
+    })
   }
 
   return (
     <div className="code-board">
       <div className="code-board-header">
         <div className="lang-tabs">
-          <button
-            className={`lang-tab${lang === 'python' ? ' active' : ''}`}
-            onClick={() => handleLangChange('python')}
-          >Python</button>
-          <button
-            className={`lang-tab${lang === 'node' ? ' active' : ''}`}
-            onClick={() => handleLangChange('node')}
-          >Node.js</button>
+          {['python', 'node', 'go', 'cpp'].map(l => (
+            <button
+              key={l}
+              className={`lang-tab${lang === l ? ' active' : ''}`}
+              onClick={() => handleLangChange(l)}
+            >
+              {{ python: 'Python', node: 'Node.js', go: 'Go', cpp: 'C++' }[l]}
+            </button>
+          ))}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {!hasParams && (
-            <span className="hint" style={{ fontStyle: 'normal', fontSize: '0.8rem' }}>
-              run a search first
-            </span>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {isCompiled ? (
+            <>
+              {compileState === 'compiled' ? (
+                <>
+                  <span style={{ fontSize: '0.75rem', color: '#1a7a3a', fontWeight: 600 }}>✓ compiled</span>
+                  {!hasParams && (
+                    <span className="hint" style={{ fontStyle: 'normal', fontSize: '0.8rem' }}>run a search first</span>
+                  )}
+                  <button
+                    className="run-btn"
+                    onClick={() => onRun(code, lang)}
+                    disabled={loading || !hasParams}
+                  >
+                    {loading ? 'Racing…' : '▶ Run'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="compile-btn"
+                  onClick={handleCompileClick}
+                  disabled={loading || notImplemented || compileState === 'compiling'}
+                >
+                  {compileState === 'compiling' ? 'Compiling…' : 'Compile'}
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              {!hasParams && (
+                <span className="hint" style={{ fontStyle: 'normal', fontSize: '0.8rem' }}>run a search first</span>
+              )}
+              <button
+                className="run-btn"
+                onClick={() => onRun(code, lang)}
+                disabled={loading || !hasParams || notImplemented}
+              >
+                {loading ? 'Racing…' : '▶ Run'}
+              </button>
+            </>
           )}
-          <button
-            className="run-btn"
-            onClick={() => onRun(code, lang)}
-            disabled={loading || !hasParams || notImplemented}
-          >
-            {loading ? 'Racing…' : '▶ Run'}
-          </button>
         </div>
       </div>
+
       {notImplemented && (
         <div className="board-warning">
-          ⚠ <code>distance(a, b)</code> is not implemented yet — results will be empty
+          ⚠ <code>distance</code> is not implemented yet
+          {isCompiled ? ' — implement it to enable compilation' : ' — results will be empty'}
         </div>
       )}
+      {compileState === 'error' && (
+        <div className="compile-error">
+          <div className="compile-error-title">Compile error:</div>
+          <pre className="compile-error-body">{compileError}</pre>
+        </div>
+      )}
+
       <Editor
         height="300px"
-        language={lang === 'node' ? 'javascript' : 'python'}
+        language={MONACO_LANG[lang]}
         value={code}
-        onChange={val => setCode(val ?? '')}
+        onChange={handleCodeChange}
         theme="vs"
         options={{
           minimap: { enabled: false },
           fontSize: 13,
           lineNumbers: 'on',
           scrollBeyondLastLine: false,
-          tabSize: 2,
+          tabSize: isCompiled ? 4 : 2,
         }}
       />
       <p className="hint" style={{ padding: '6px 0 0', fontSize: '0.75rem' }}>
-        Implement <code>distance(a, b)</code> — Run re-races all engines under your last search
+        {isCompiled
+          ? <>Implement <code>distance</code> — Compile once, then Run to race</>
+          : <>Implement <code>distance(a, b)</code> — Run re-races all engines under your last search</>
+        }
       </p>
     </div>
   )
