@@ -138,7 +138,7 @@ export default function App() {
         )}
       </div>
 
-      <button className="board-toggle" onClick={() => setShowBoard(v => !v)}>
+      <button className="board-toggle" onClick={() => setShowBoard(v => { if (v) setUserEngine(idleEng()); return !v; })}>
         <span>&lt;/&gt; Code your own</span>
         <span className={`toggle-chevron${showBoard ? ' open' : ''}`}>▾</span>
       </button>
