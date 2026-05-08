@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import SearchForm from './components/SearchForm'
 import Speedometer from './components/Speedometer'
+import CodeBoard from './components/CodeBoard'
 import './App.css'
 
 const ENGINES = [
@@ -14,20 +15,24 @@ const idleEng    = () => ({ status: 'idle',    durationMs: null, wallClockMs: nu
 const loadingEng = () => ({ status: 'loading', durationMs: null, wallClockMs: null })
 
 export default function App() {
-  const [engines, setEngines] = useState(Object.fromEntries(ENGINES.map(e => [e.key, idleEng()])))
-  const [results, setResults] = useState({ status: 'idle', words: [] })
+  const [engines, setEngines]       = useState(Object.fromEntries(ENGINES.map(e => [e.key, idleEng()])))
+  const [userEngine, setUserEngine] = useState(idleEng())
+  const [results, setResults]       = useState({ status: 'idle', words: [] })
+  const [showBoard, setShowBoard]   = useState(false)
+  const [lastParams, setLastParams] = useState(null)
   const searchStartRef = useRef(null)
 
   function setEng(key, val) {
     setEngines(prev => ({ ...prev, [key]: val }))
   }
 
-  async function handleSearch(form) {
+  function runAll(params, customCode = null, customLang = null) {
     searchStartRef.current = Date.now()
     setEngines(Object.fromEntries(ENGINES.map(e => [e.key, loadingEng()])))
     setResults({ status: 'loading', words: [] })
+    if (customCode) setUserEngine(loadingEng())
 
-    const body    = JSON.stringify({ word: form.word, delta: form.delta, limit: form.limit, trgm: form.trgm })
+    const body    = JSON.stringify({ word: params.word, delta: params.delta, limit: params.limit, trgm: params.trgm })
     const headers = { 'Content-Type': 'application/json' }
 
     for (const { key, endpoint } of ENGINES) {
@@ -36,18 +41,40 @@ export default function App() {
         .then(data => {
           const wallClockMs = searchStartRef.current != null ? Date.now() - searchStartRef.current : null
           setEng(key, { status: 'done', durationMs: data.duration_ms, wallClockMs })
-          if (key === 'go') {
-            setResults({ status: 'done', words: data.results ?? [] })
-          }
+          if (key === 'go') setResults({ status: 'done', words: data.results ?? [] })
         })
         .catch(() => {
           setEng(key, { status: 'error', durationMs: null, wallClockMs: null })
           if (key === 'go') setResults({ status: 'error', words: [] })
         })
     }
+
+    if (customCode) {
+      const customBody = JSON.stringify({
+        word: params.word, delta: params.delta, limit: params.limit, trgm: params.trgm,
+        code: customCode, language: customLang,
+      })
+      fetch('/api/search/custom', { method: 'POST', headers, body: customBody })
+        .then(r => r.json())
+        .then(data => {
+          const wallClockMs = searchStartRef.current != null ? Date.now() - searchStartRef.current : null
+          setUserEngine({ status: 'done', durationMs: data.duration_ms, wallClockMs })
+        })
+        .catch(() => setUserEngine({ status: 'error', durationMs: null, wallClockMs: null }))
+    }
   }
 
-  const anyLoading = Object.values(engines).some(e => e.status === 'loading')
+  function handleSearch(form) {
+    setLastParams(form)
+    runAll(form)
+  }
+
+  function handleRun(code, lang) {
+    if (!lastParams) return
+    runAll(lastParams, code, lang)
+  }
+
+  const anyLoading = Object.values(engines).some(e => e.status === 'loading') || userEngine.status === 'loading'
 
   return (
     <div className="app">
@@ -65,7 +92,7 @@ export default function App() {
           </svg>
           EditRace
         </h1>
-        <p>Type a word, set how many letters off you'll allow, and find every English dictionary match — then watch Go, C++, Python, and JavaScript race to find them.</p>
+        <p>Type a word, set how many letters off you'll allow, and find every match across a <a href="https://raw.githubusercontent.com/dwyl/english-words/master/words.txt" target="_blank" rel="noreferrer">466k-word dictionary ↗</a> — then watch Go, C++, Python, and Node.js race to find them.</p>
       </header>
 
       <div className="card">
@@ -82,11 +109,25 @@ export default function App() {
         </span>
       </div>
 
-      <div className="gauges-grid">
+      <div className={`gauges-grid${showBoard ? ' five' : ''}`}>
         {ENGINES.map(({ key, label }) => (
-          <Speedometer key={key} label={label} {...engines[key]} />
+          <Speedometer key={key} label={label} engineKey={key} {...engines[key]} />
         ))}
+        {showBoard && (
+          <Speedometer label="You" engineKey={null} {...userEngine} />
+        )}
       </div>
+
+      <button className="board-toggle" onClick={() => setShowBoard(v => !v)}>
+        <span>&lt;/&gt; Code your own</span>
+        <span className={`toggle-chevron${showBoard ? ' open' : ''}`}>▾</span>
+      </button>
+
+      {showBoard && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <CodeBoard onRun={handleRun} loading={anyLoading} hasParams={!!lastParams} />
+        </div>
+      )}
 
       <div className="results-panel">
         {results.status === 'idle'    && <p className="hint">results appear here after search</p>}
