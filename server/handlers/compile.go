@@ -65,6 +65,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 	"time"
 	EXTRA_IMPORTS
@@ -78,13 +79,14 @@ func main() {
 	limit, _ := strconv.Atoi(os.Args[3])
 	wordLen := len(word)
 
-	var candidates []string
+	candidates := make([]string, 0, 500000)
 	sc := bufio.NewScanner(os.Stdin)
 	for sc.Scan() {
 		if line := sc.Text(); line != "" {
 			candidates = append(candidates, line)
 		}
 	}
+	runtime.GC()
 
 	start := time.Now()
 	var results []string
